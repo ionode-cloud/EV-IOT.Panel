@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Dashboard = require('../models/Dashboard');
 const Device = require('../models/Device');
 const crypto = require('crypto');
@@ -9,6 +10,10 @@ const generateParticleId = () => crypto.randomBytes(12).toString('hex');
 
 exports.createDashboard = async (req, res) => {
     try {
+        // Root Admin check
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access Denied. Root Admin only.' });
+        }
         const { dashboardName, deviceId, email, password, enabledFeatures, description } = req.body;
 
         if (!dashboardName || !deviceId || !email || !password) {
@@ -81,13 +86,13 @@ exports.createDashboard = async (req, res) => {
 
 exports.getDashboards = async (req, res) => {
     try {
-        // If authentication is removed, req.user might be undefined.
-        // Return all dashboards if no user filter is applicable.
-        const query = (req.user && req.user.role !== 'admin') ? { user: req.user._id } : {};
+        // Base query: if user filter is applicable (Standard User sees only their own)
+        let query = (!req.user || req.user.role === 'admin' || req.user.role === 'operator') ? {} : { user: req.user._id };
+        
         const dashboards = await Dashboard.find(query).populate('user', 'email');
         
         // Enrich dashboards with deviceName from the Device model
-        const deviceIds = [...new Set(dashboards.map(d => d.deviceId))];
+        const deviceIds = [...new Set(dashboards.map(d => d.deviceId).filter(Boolean))];
         const devices = await Device.find({ deviceId: { $in: deviceIds } });
         
         const deviceMap = devices.reduce((acc, dev) => {
@@ -103,17 +108,106 @@ exports.getDashboards = async (req, res) => {
 
         res.status(200).json(enrichedDashboards);
     } catch (error) {
+        console.error('GET ALL DASHBOARDS ERROR:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+exports.getDashboardById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Dashboard ID format' });
+        }
+
+        let query = { _id: id };
+        // Filter by user if not admin/operator
+        if (req.user && req.user.role !== 'admin' && req.user.role !== 'operator') {
+            query.user = req.user._id;
+        }
+
+        const dashboard = await Dashboard.findOne(query).populate('user', 'email');
+        
+        if (!dashboard) {
+            return res.status(404).json({ message: 'Dashboard not found' });
+        }
+
+        // Enrich with device metadata
+        const device = await Device.findOne({ deviceId: dashboard.deviceId });
+        
+        const enriched = {
+            ...dashboard.toObject(),
+            deviceName: device?.deviceName || 'Unknown Device',
+            location: device?.location || 'Unknown Location'
+        };
+
+        res.status(200).json(enriched);
+    } catch (error) {
+        console.error('GET DASHBOARD BY ID ERROR:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
 
 exports.deleteDashboard = async (req, res) => {
     try {
-        const { id } = req.params;
-        // Allows Admin to delete any dashboard
-        await Dashboard.findByIdAndDelete(id);
+        const id = req.params.id || req.body.id || req.query.id;
+        
+        if (!id) {
+            return res.status(400).json({ message: 'Dashboard ID is required' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Dashboard ID format' });
+        }
+
+        const deleted = await Dashboard.findByIdAndDelete(id);
+        
+        if (!deleted) {
+            return res.status(404).json({ message: 'Dashboard not found' });
+        }
+
         res.status(200).json({ message: 'Dashboard deleted successfully' });
     } catch (error) {
+        console.error('CRITICAL DELETE ERROR:', error);
+        res.status(500).json({ 
+            message: 'Internal Server Error', 
+            error: error.message
+        });
+    }
+};
+
+// PUT /api/dashboards - Update dashboard
+exports.updateDashboard = async (req, res) => {
+    try {
+        // Root Admin check
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access Denied. Root Admin only.' });
+        }
+        
+        const id = req.params.id || req.body.id || req.query.id;
+        if (!id) {
+            return res.status(400).json({ message: 'Dashboard ID is required' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Dashboard ID format' });
+        }
+        
+        const { dashboardName, deviceId, description } = req.body;
+        const updated = await Dashboard.findByIdAndUpdate(id, { 
+            dashboardName, 
+            deviceId, 
+            description 
+        }, { new: true });
+
+        if (!updated) {
+            return res.status(404).json({ message: 'Dashboard not found' });
+        }
+
+        res.status(200).json({ message: 'Dashboard updated successfully', data: updated });
+    } catch (error) {
+        console.error('UPDATE DASHBOARD ERROR:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

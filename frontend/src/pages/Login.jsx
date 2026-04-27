@@ -46,21 +46,6 @@ const Login = () => {
                 overflow: 'hidden',
                 display: 'none',
             }} className="auth-hero-panel">
-                {/* Hero image fills the panel */}
-                <img
-                    src="/eviot-hero.png"
-                    alt="EVIoT Dashboard"
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        objectPosition: 'center',
-                        opacity: 0.55,
-                    }}
-                />
-
                 {/* Dark overlay gradient */}
                 <div style={{
                     position: 'absolute',
@@ -294,9 +279,10 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading}
+                            className="submit-btn"
                             style={{
                                 width: '100%', height: 48, marginTop: 4,
-                                background: loading ? '#6ee7b7' : 'linear-gradient(135deg, #10b981 0%, #06b6d4 100%)',
+                                background: loading ? '#6ee7b7' : 'linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212))',
                                 color: '#fff', border: 'none', borderRadius: 10,
                                 fontSize: 13, fontWeight: 800, letterSpacing: '0.06em',
                                 textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer',
@@ -333,6 +319,11 @@ const Login = () => {
                 @keyframes pulse {
                     0%, 100% { opacity: 1; transform: scale(1); }
                     50% { opacity: 0.5; transform: scale(1.2); }
+                }
+                .submit-btn:hover {
+                    background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212)) !important;
+                    opacity: 0.9;
+                    transform: translateY(-1px);
                 }
                 @media (min-width: 1024px) {
                     .auth-hero-panel { display: flex !important; flex-direction: column; }

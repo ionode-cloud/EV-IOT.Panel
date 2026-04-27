@@ -1,9 +1,13 @@
+const mongoose = require('mongoose');
 const Device = require('../models/Device');
 const Dashboard = require('../models/Dashboard');
 
 // Add new device
 exports.addDevice = async (req, res) => {
     try {
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access Denied. Root Admin only.' });
+        }
         const { deviceName, deviceId, location } = req.body;
 
         const existingDevice = await Device.findOne({ deviceId });
@@ -15,7 +19,7 @@ exports.addDevice = async (req, res) => {
             deviceName,
             deviceId,
             location,
-            createdBy: req.user.email
+            createdBy: req.user ? req.user.email : 'Public'
         });
 
         await device.save();
@@ -29,7 +33,7 @@ exports.addDevice = async (req, res) => {
 exports.getDevices = async (req, res) => {
     try {
         let query = {};
-        if (req.user && req.user.role !== 'admin') {
+        if (req.user && (req.user.role !== 'admin' && req.user.role !== 'operator')) {
             // Find devices linked to user's dashboards or created by the user
             const userDashboards = await Dashboard.find({ user: req.user._id });
             const userDeviceIds = userDashboards.map(d => d.deviceId);
@@ -82,7 +86,19 @@ exports.updateDeviceStatus = async (req, res) => {
 // PUT /api/devices/:id — Full update of a device record
 exports.updateDevice = async (req, res) => {
     try {
-        const { id } = req.params;
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access Denied. Root Admin only.' });
+        }
+        
+        const id = req.params.id || req.body.id || req.query.id;
+        if (!id) {
+            return res.status(400).json({ message: 'Device ID (database _id) is required' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Device ID format' });
+        }
+
         const { deviceName, location, status } = req.body;
 
         const updateFields = {};
@@ -98,6 +114,7 @@ exports.updateDevice = async (req, res) => {
 
         res.status(200).json({ message: 'Device updated successfully', device });
     } catch (error) {
+        console.error('UPDATE DEVICE ERROR:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
@@ -105,10 +122,28 @@ exports.updateDevice = async (req, res) => {
 // Delete device
 exports.deleteDevice = async (req, res) => {
     try {
-        const { id } = req.params;
-        await Device.findByIdAndDelete(id);
+        if (!req.user || req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Access Denied. Root Admin only.' });
+        }
+        
+        const id = req.params.id || req.body.id || req.query.id;
+        if (!id) {
+            return res.status(400).json({ message: 'Device ID (database _id) is required' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Device ID format' });
+        }
+
+        const deleted = await Device.findByIdAndDelete(id);
+        
+        if (!deleted) {
+            return res.status(404).json({ message: 'Device not found' });
+        }
+
         res.status(200).json({ message: 'Device deleted successfully' });
     } catch (error) {
+        console.error('DELETE DEVICE ERROR:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

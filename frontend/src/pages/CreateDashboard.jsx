@@ -46,12 +46,15 @@ const CreateDashboard = () => {
         setFormLoading(true);
         try {
             const apiUrl = import.meta.env.VITE_API_URL;
+            const token = localStorage.getItem('token');
             await axios.post(`${apiUrl}/api/dashboards`, {
                 dashboardName,
                 deviceId,
                 email,
                 password,
                 description
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
             
             setSuccess('Dashboard workstation provisioned successfully!');
@@ -84,7 +87,7 @@ const CreateDashboard = () => {
         <div className="space-y-8 animate-in fade-in duration-500 pb-10 max-w-6xl mx-auto">
             {/* Header */}
             <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#111827] rounded-xl flex items-center justify-center text-white shadow-lg">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#06b6d4] to-[#10b981] rounded-xl flex items-center justify-center text-white shadow-lg">
                     <PlusCircle size={24} />
                 </div>
                 <div>

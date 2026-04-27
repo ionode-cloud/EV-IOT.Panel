@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Chart from 'react-apexcharts';
 import {
-    Zap, ChevronRight, Trash2, Cpu, Power, Clock, Activity, BarChart2
+    Zap, ChevronRight, Trash2, Cpu, Power, Clock, Activity, BarChart2, Mail
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import '../index.css';
 
 const API = import.meta.env.VITE_API_URL;
@@ -76,54 +77,169 @@ const RunTimeChart = ({ data }) => {
     );
 };
 
-// ─── Last Hour Status Timeline ────────────────────────────────────────────────
-const LastHourStatus = ({ data }) => {
-    const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
+// ─── Hourly Status Table (Last 24 Hours or Date-wise) ─────────────────────────
+const DateWiseStatus = ({ data, selectedDate, setSelectedDate }) => {
+    // Calculate hourly summary
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    let hourlySummary = hours.map(hour => {
+        // filter data for this hour
+        const hourData = data.filter(d => new Date(d.timestamp).getHours() === hour);
+        const isOn = hourData.some(d => d.switch === true);
+        const isOff = hourData.some(d => d.switch === false);
+        
+        const onEvents = hourData.filter(d => d.switch === true);
+        const timeSwitchOn = onEvents.length > 0 
+            ? onEvents.map(d => new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})).join(', ')
+            : '—';
 
-    // Build 60 one-minute slots
-    const slots = Array.from({ length: 60 }, (_, i) => {
-        const slotStart = now - (60 - i) * 60000;
-        const slotEnd = slotStart + 60000;
-        const point = data.find((d) => {
-            const t = new Date(d.timestamp).getTime();
-            return t >= slotStart && t < slotEnd;
+        const offEvents = hourData.filter(d => d.switch === false);
+        const timeSwitchOff = offEvents.length > 0 
+            ? offEvents.map(d => new Date(d.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true})).join(', ')
+            : '—';
+
+        // Calculate total ON time in this hour (simplified estimation)
+        let totalOnMs = 0;
+        const sortedHourData = [...hourData].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+        let lastOnTime = null;
+        
+        sortedHourData.forEach(d => {
+            if (d.switch === true) lastOnTime = new Date(d.timestamp).getTime();
+            else if (d.switch === false && lastOnTime) {
+                totalOnMs += (new Date(d.timestamp).getTime() - lastOnTime);
+                lastOnTime = null;
+            }
         });
-        return point?.switch === true ? 'on' : point?.switch === false ? 'off' : 'none';
+        // If it ended the hour still ON, we count until the end of the hour or now
+        if (lastOnTime) {
+            const endOfHour = new Date(selectedDate);
+            endOfHour.setHours(hour, 59, 59, 999);
+            const limit = Math.min(Date.now(), endOfHour.getTime());
+            totalOnMs += (limit - lastOnTime);
+        }
+
+        let status = 'No Data';
+        if (isOn && isOff) status = 'Mixed (On/Off)';
+        else if (isOn) status = 'Running';
+        else if (isOff) status = 'Stopped';
+        
+        return { hour, status, count: hourData.length, timeSwitchOn, timeSwitchOff, totalTime: totalOnMs > 0 ? formatDuration(totalOnMs) : '0s' };
     });
 
+    // Sort to show Running at the top
+    hourlySummary.sort((a, b) => {
+        const rank = (s) => {
+            if (s === 'Running') return 1;
+            if (s === 'Mixed (On/Off)') return 2;
+            if (s === 'Stopped') return 3;
+            return 4; // No Data
+        };
+        if (rank(a.status) !== rank(b.status)) {
+            return rank(a.status) - rank(b.status);
+        }
+        return b.hour - a.hour; // fallback sort descending
+    });
+
+    // Calculate max run time (most time switch on)
+    let maxRunMs = 0;
+    let currentStart = null;
+    const ascData = [...data].reverse();
+    ascData.forEach(d => {
+        if (d.switch === true && !currentStart) {
+            currentStart = new Date(d.timestamp).getTime();
+        }
+        if (d.switch === false && currentStart) {
+            const run = new Date(d.timestamp).getTime() - currentStart;
+            if (run > maxRunMs) maxRunMs = run;
+            currentStart = null;
+        }
+    });
+    if (currentStart) {
+        const run = Date.now() - currentStart;
+        if (run > maxRunMs) maxRunMs = run;
+    }
+
     return (
-        <div>
-            <div className="flex gap-[2px] flex-wrap">
-                {slots.map((s, i) => (
-                    <div
-                        key={i}
-                        title={`${60 - i}min ago: ${s === 'on' ? 'Running' : s === 'off' ? 'Stopped' : 'No data'}`}
-                        className="rounded-sm transition-all duration-300"
-                        style={{
-                            width: '10px',
-                            height: '20px',
-                            background: s === 'on' ? '#22c55e' : s === 'off' ? '#6b7280' : 'rgba(255,255,255,0.07)',
-                        }}
-                    />
-                ))}
-            </div>
-            <div className="flex justify-between mt-2">
-                <span className="text-[9px] text-white/30 font-bold">60 min ago</span>
-                <span className="text-[9px] text-white/30 font-bold">Now</span>
-            </div>
-            <div className="flex items-center gap-4 mt-3">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-[#22c55e]" />
-                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Running</span>
+        <div className="premium-kpi grad-navy p-8">
+            <div className="sparkline-bg opacity-10" />
+            <div className="relative z-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <div>
+                        <h3 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                            <Clock size={18} className="text-[#22c55e]" />
+                            Date-Wise Hourly Status
+                        </h3>
+                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mt-1">
+                            Hourly breakdown for selected date
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <input 
+                            type="date" 
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm font-bold text-white outline-none cursor-pointer"
+                        />
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-[#6b7280]" />
-                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">Stopped</span>
+
+                <div className="mb-6 bg-white/5 rounded-xl p-4 border border-white/10 flex items-center justify-between">
+                    <div>
+                        <p className="text-[10px] font-black text-white/50 uppercase tracking-widest mb-1">Most Time Switch ON</p>
+                        <p className="text-xl font-black text-[#4ade80]">{maxRunMs > 0 ? formatDuration(maxRunMs) : 'None'}</p>
+                    </div>
+                    <div className="glass-icon bg-[#22c55e]/20 text-[#4ade80]">
+                        <Zap size={20} />
+                    </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(255,255,255,0.07)' }} />
-                    <span className="text-[9px] text-white/40 font-bold uppercase tracking-wider">No Data</span>
+
+                <div className="overflow-x-auto max-h-[400px] pr-2 custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="sticky top-0 bg-[#0f2027] shadow-md z-10">
+                            <tr className="border-b border-white/10">
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Time (Hour)</th>
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Status</th>
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Time Switch ON</th>
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Time Switch OFF</th>
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Total Time</th>
+                                <th className="py-3 px-4 text-[10px] font-black text-white/50 uppercase tracking-widest">Records</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {hourlySummary.map((h) => {
+                                const isNow = new Date().toISOString().split('T')[0] === selectedDate && new Date().getHours() === h.hour;
+                                return (
+                                    <tr key={h.hour} className={`border-b border-white/5 hover:bg-white/5 transition-colors ${isNow ? 'bg-white/10' : ''}`}>
+                                        <td className="py-3 px-4 text-sm font-bold text-white/80">
+                                            {h.hour === 0 ? '12' : h.hour > 12 ? h.hour - 12 : h.hour} {h.hour < 12 ? 'AM' : 'PM'} - {h.hour + 1 === 12 ? '12' : h.hour + 1 > 12 ? (h.hour + 1 === 24 ? '12' : h.hour + 1 - 12) : h.hour + 1} {h.hour + 1 < 12 || h.hour + 1 === 24 ? 'AM' : 'PM'}
+                                            {isNow && <span className="ml-2 text-[9px] text-[#4ade80] bg-[#4ade80]/20 px-1.5 py-0.5 rounded uppercase tracking-widest">Now</span>}
+                                        </td>
+                                        <td className="py-3 px-4">
+                                            <span className={`text-xs font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                                                h.status === 'Running' ? 'bg-[#22c55e]/20 text-[#4ade80]' :
+                                                h.status === 'Stopped' ? 'bg-white/10 text-white/60' :
+                                                h.status === 'Mixed (On/Off)' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                'text-white/30'
+                                            }`}>
+                                                {h.status}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-mono text-white/80">
+                                            {h.timeSwitchOn}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-mono text-white/80">
+                                            {h.timeSwitchOff}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-bold text-[#4ade80]">
+                                            {h.totalTime}
+                                        </td>
+                                        <td className="py-3 px-4 text-sm font-mono text-white/50">
+                                            {h.count}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -132,11 +248,13 @@ const LastHourStatus = ({ data }) => {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 const Dashboard = () => {
+    const { user } = useAuth();
     const [dashboards, setDashboards] = useState([]);
     const [selectedDashboard, setSelectedDashboard] = useState(null);
     const [latestData, setLatestData] = useState(null);
     const [historyData, setHistoryData] = useState([]);
-    const [lastHourData, setLastHourData] = useState([]);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dateHistoryData, setDateHistoryData] = useState([]);
     const [isSelectingDashboard, setIsSelectingDashboard] = useState(false);
     const [switchLoading, setSwitchLoading] = useState(false);
     const [elapsedMs, setElapsedMs] = useState(null);
@@ -183,11 +301,11 @@ const Dashboard = () => {
         if (!selectedDashboard) return;
         const poll = async () => {
             try {
-                const [latestRes, historyRes, hourRes, switchRes] = await Promise.all([
+                const [latestRes, historyRes, switchRes, dateRes] = await Promise.all([
                     axios.get(`${API}/api/vehicle/latest?deviceId=${selectedDashboard.deviceId}`),
                     axios.get(`${API}/api/vehicle/history?deviceId=${selectedDashboard.deviceId}&limit=200`),
-                    axios.get(`${API}/api/vehicle/last-hour?deviceId=${selectedDashboard.deviceId}`),
                     axios.get(`${API}/api/vehicle/switch?deviceId=${selectedDashboard.deviceId}`),
+                    axios.get(`${API}/api/vehicle/history?deviceId=${selectedDashboard.deviceId}&startDate=${selectedDate}&endDate=${selectedDate}&limit=2000`),
                 ]);
 
                 // Merge the explicit switch state into latest data for reliability
@@ -201,7 +319,7 @@ const Dashboard = () => {
                     setLatestData(merged);
                 }
                 if (historyRes.data) setHistoryData([...historyRes.data].reverse());
-                if (hourRes.data) setLastHourData([...hourRes.data].reverse());
+                if (dateRes.data) setDateHistoryData(dateRes.data);
             } catch (err) {
                 console.error('Data fetch error:', err);
             }
@@ -209,18 +327,23 @@ const Dashboard = () => {
         poll();
         const interval = setInterval(poll, 3000);
         return () => clearInterval(interval);
-    }, [selectedDashboard]);
+    }, [selectedDashboard, selectedDate]);
 
     const handleDeleteDashboard = async (id, e) => {
         e.stopPropagation();
         if (!window.confirm('Delete this vehicle dashboard?')) return;
         try {
-            await axios.delete(`${API}/api/dashboards/${id}`);
+            const token = localStorage.getItem('token');
+            await axios.delete(`${API}/api/dashboards/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             const updated = dashboards.filter((d) => d._id !== id);
             setDashboards(updated);
-            if (selectedDashboard?._id === id) {
+            
+            // If we deleted the active dashboard, or no dashboards are left, go back to selection grid
+            if (selectedDashboard?._id === id || updated.length === 0) {
                 setSelectedDashboard(null);
-                if (updated.length > 1) setIsSelectingDashboard(true);
+                setIsSelectingDashboard(true);
             }
         } catch (err) {
             alert('Failed to delete dashboard.');
@@ -228,7 +351,7 @@ const Dashboard = () => {
     };
 
     const handleToggleSwitch = async () => {
-        if (!selectedDashboard || switchLoading) return;
+        if (!selectedDashboard || switchLoading || user?.role === 'operator') return;
         const newState = !isRunning;
         setSwitchLoading(true);
 
@@ -236,11 +359,14 @@ const Dashboard = () => {
         setLatestData(prev => ({ ...prev, switch: newState }));
 
         try {
+            const token = localStorage.getItem('token');
             // Use PUT to force-set the switch state deterministically
             await axios.put(`${API}/api/vehicle/switch`, {
                 deviceId: selectedDashboard.deviceId,
                 switchState: newState,
                 reason: 'Dashboard manual toggle',
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
 
             // Confirm from server
@@ -276,12 +402,11 @@ const Dashboard = () => {
                 </header>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {dashboards.map((d, i) => {
-                        const grads = ['grad-blue', 'grad-indigo', 'grad-teal', 'grad-purple', 'grad-navy', 'grad-emerald'];
                         return (
                             <div
                                 key={d._id}
                                 onClick={() => { setSelectedDashboard(d); setIsSelectingDashboard(false); }}
-                                className={`premium-kpi ${grads[i % grads.length]} cursor-pointer group scale-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300`}
+                                className="premium-kpi grad-navy cursor-pointer group scale-100 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
                                 style={{ minHeight: '200px' }}
                             >
                                 <div className="sparkline-bg opacity-30" />
@@ -295,6 +420,10 @@ const Dashboard = () => {
                                 </div>
                                 <div className="mt-6 relative z-10">
                                     <h3 className="text-xl font-black tracking-tight mb-1">{d.dashboardName}</h3>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Mail size={10} className="text-white/40" />
+                                        <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{d.user?.email || 'No User'}</span>
+                                    </div>
                                     <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-2">{d.deviceName}</p>
                                     <div className="flex items-center gap-2 text-white/40">
                                         <Cpu size={12} />
@@ -302,13 +431,15 @@ const Dashboard = () => {
                                     </div>
                                 </div>
                                 <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center relative z-10">
-                                    <button
-                                        onClick={(e) => handleDeleteDashboard(d._id, e)}
-                                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-rose-500/80 hover:text-white transition-all duration-300"
-                                        title="Delete Dashboard"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    {user?.role === 'admin' && (
+                                        <button
+                                            onClick={(e) => handleDeleteDashboard(d._id, e)}
+                                            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-rose-500/80 hover:text-white transition-all duration-300"
+                                            title="Delete Dashboard"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80">View</span>
                                         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white group-hover:text-[#111827] transition-all duration-500">
@@ -331,7 +462,7 @@ const Dashboard = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg,#10b981,#06b6d4)'}}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background:'linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212))'}}>
                         <Zap size={20} className="text-white fill-current" />
                     </div>
                     <div>
@@ -364,8 +495,8 @@ const Dashboard = () => {
                         <button
                             id="ev-switch-toggle"
                             onClick={handleToggleSwitch}
-                            disabled={switchLoading || !selectedDashboard}
-                            className={`relative w-20 h-10 rounded-full transition-all duration-500 focus:outline-none shadow-lg ${isRunning ? 'bg-[#22c55e]' : 'bg-[#374151]'}`}
+                            disabled={switchLoading || !selectedDashboard || user?.role === 'operator'}
+                            className={`relative w-20 h-10 rounded-full transition-all duration-500 focus:outline-none shadow-lg ${isRunning ? 'bg-[#22c55e]' : 'bg-[#374151]'} ${user?.role === 'operator' ? 'cursor-not-allowed opacity-80' : ''}`}
                             style={{ boxShadow: isRunning ? '0 0 24px rgba(34,197,94,0.5)' : 'none' }}
                         >
                             <span
@@ -384,7 +515,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* 2. Status LED */}
-                <div className="premium-kpi grad-indigo flex flex-col items-center justify-center gap-4 py-8">
+                <div className="premium-kpi grad-navy flex flex-col items-center justify-center gap-4 py-8">
                     <div className="sparkline-bg opacity-10" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
                         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/50">Status LED</p>
@@ -400,12 +531,10 @@ const Dashboard = () => {
                                     : '0 0 0 6px rgba(107,114,128,0.15)',
                             }}
                         >
-                            <div
-                                className="w-5 h-5 rounded-full"
-                                style={{
-                                    background: isRunning ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.2)',
-                                    animation: isRunning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                                }}
+                            <Zap 
+                                size={24} 
+                                className={`${isRunning ? 'text-white' : 'text-white/20'} transition-all duration-700`} 
+                                fill={isRunning ? 'currentColor' : 'none'}
                             />
                         </div>
                         <div className="text-center">
@@ -422,7 +551,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* 3. Last EV Run Time (elapsed) */}
-                <div className="premium-kpi grad-emerald flex flex-col items-center justify-center gap-4 py-8">
+                <div className="premium-kpi grad-navy flex flex-col items-center justify-center gap-4 py-8">
                     <div className="sparkline-bg opacity-10" />
                     <div className="relative z-10 flex flex-col items-center gap-3">
                         <div className="glass-icon">
@@ -465,28 +594,8 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* ── Last Hour Status ── */}
-            <div className="premium-kpi grad-purple p-8">
-                <div className="sparkline-bg opacity-10" />
-                <div className="flex justify-between items-center mb-6 relative z-10">
-                    <div>
-                        <h3 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-                            <Activity size={18} className="text-[#a78bfa]" />
-                            Last Hour Status
-                        </h3>
-                        <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mt-1">
-                            Per-minute ON/OFF timeline — past 60 minutes
-                        </p>
-                    </div>
-                    <div className="trend-badge">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#a78bfa] animate-pulse" />
-                        <span className="uppercase tracking-widest text-[9px]">LIVE</span>
-                    </div>
-                </div>
-                <div className="relative z-10">
-                    <LastHourStatus data={lastHourData} />
-                </div>
-            </div>
+            {/* ── Date-Wise Status Table ── */}
+            <DateWiseStatus data={dateHistoryData} selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
 
         </div>
     );

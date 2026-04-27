@@ -114,20 +114,6 @@ const Register = () => {
                 overflow: 'hidden',
                 display: 'none',
             }} className="auth-hero-panel">
-                {/* Hero image */}
-                <img
-                    src="/eviot-hero.png"
-                    alt="EVIoT Dashboard"
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        objectPosition: 'center',
-                        opacity: 0.55,
-                    }}
-                />
                 {/* Dark overlay */}
                 <div style={{
                     position: 'absolute', inset: 0,
@@ -267,7 +253,7 @@ const Register = () => {
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={loading} style={{ width: '100%', height: 48, marginTop: 4, background: loading ? '#34d399' : '#10b981', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}>
+                                <button type="submit" disabled={loading} className="reg-btn" style={{ width: '100%', height: 48, marginTop: 4, background: loading ? '#34d399' : 'linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212))', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}>
                                     {loading ? <div style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <><span>Send OTP Code</span><ChevronRight size={17} /></>}
                                 </button>
                             </form>
@@ -320,7 +306,7 @@ const Register = () => {
                                     ))}
                                 </div>
 
-                                <button type="submit" disabled={loading || otp.join('').length < 6} style={{ width: '100%', height: 48, background: otp.join('').length < 6 ? '#D1D5DB' : '#10b981', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: otp.join('').length < 6 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: otp.join('').length < 6 ? 'none' : '0 4px 14px rgba(16,185,129,0.35)' }}>
+                                <button type="submit" disabled={loading || otp.join('').length < 6} className="reg-btn" style={{ width: '100%', height: 48, background: otp.join('').length < 6 ? '#D1D5DB' : 'linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212))', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: otp.join('').length < 6 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: otp.join('').length < 6 ? 'none' : '0 4px 14px rgba(16,185,129,0.35)' }}>
                                     {loading ? <div style={{ width: 18, height: 18, border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> : <><ShieldCheck size={17} /><span>Verify Code</span></>}
                                 </button>
 
@@ -341,7 +327,7 @@ const Register = () => {
                             <p style={{ fontSize: 13, color: '#6B7280', fontWeight: 500, marginBottom: 36, lineHeight: 1.6 }}>
                                 Your EVIoT account is ready. You can now access the monitoring dashboard.
                             </p>
-                            <button onClick={() => navigate('/login')} style={{ width: '100%', height: 48, background: '#10b981', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}>
+                            <button onClick={() => navigate('/login')} className="reg-btn" style={{ width: '100%', height: 48, background: 'linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212))', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', boxShadow: '0 4px 14px rgba(16,185,129,0.35)' }}>
                                 Continue to Login
                             </button>
                         </div>
@@ -354,6 +340,11 @@ const Register = () => {
             </div>
 
             <style>{`
+                .reg-btn:hover {
+                    background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212)) !important;
+                    opacity: 0.9;
+                    transform: translateY(-1px);
+                }
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @media (min-width: 1024px) {
                     .auth-hero-panel { display: flex !important; flex-direction: column; }

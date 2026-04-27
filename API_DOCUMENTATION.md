@@ -1,147 +1,133 @@
-# EVIoT Panel — API Documentation
 
-**Base URL:** `http://localhost:5112`  
-**Version:** 1.0.0  
-**Auth:** Bearer JWT token (where indicated)
+## 3. Device Management
 
-> **How to get a token:** Call `POST /api/auth/login` and copy the `token` from the response.  
-> Add it to every protected request as:  
-> `Authorization: Bearer <your_token_here>`
+### GET `/api/devices`
 
----
-
-## 📋 Table of Contents
-
-1. [Health Check](#1-health-check)
-2. [Authentication](#2-authentication)
-3. [Vehicle Switch Control](#3-vehicle-switch-control)
-4. [Vehicle Telemetry Data](#4-vehicle-telemetry-data)
-5. [Devices](#5-devices)
-6. [Dashboards](#6-dashboards)
-7. [Users](#7-users)
-8. [Socket.IO Events](#8-socketio-events)
-9. [Error Codes](#9-error-codes)
-
----
-
-## 1. Health Check
-
-### GET `/api/health`
-
-Check if the server and database are running.
+Get a list of all registered **IoT devices** (ESP32 modules).
 
 **Auth:** None  
 **Method:** `GET`
 
 **Postman Setup:**
 ```
-GET http://localhost:5112/api/health
-```
-
-**Response `200`:**
-```json
-{
-  "status": "UP",
-  "time": "2026-04-25T07:00:00.000Z",
-  "dbStatus": "Connected"
-}
+GET http://localhost:5112/api/devices
 ```
 
 ---
 
-## 2. Authentication
+### POST `/api/devices`
 
-### POST `/api/auth/register`
+**Register** a new hardware node.
 
-Register a new user account.
-
-**Auth:** None  
+**Auth:** Bearer Token (Required)  
 **Method:** `POST`
 
-**Postman Setup:**
-```
-POST http://localhost:5112/api/auth/register
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
+**Body:**
 ```json
 {
-  "email": "user@example.com",
-  "password": "StrongPass123"
-}
-```
-
-**Response `201`:**
-```json
-{
-  "message": "User registered successfully",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "deviceName": "My ESP32",
+  "deviceId": "ESP_01",
+  "location": "Garage"
 }
 ```
 
 ---
 
-### POST `/api/auth/login`
+### PUT `/api/devices`
 
-Login and get a JWT token.
+**Update** device details.
+
+**Auth:** Bearer Token (Admin Only)  
+**Method:** `PUT`
+
+**Body:**
+```json
+{
+  "id": "662a...",
+  "deviceName": "Updated Name",
+  "location": "New Office"
+}
+```
+
+---
+
+### DELETE `/api/devices`
+
+**Delete** a hardware node.
+
+**Auth:** Bearer Token (Admin Only)  
+**Method:** `DELETE`
+
+**Query Param:** `?id=662a...` or in **Body** `{"id": "662a..."}`
+
+---
+
+## 4. Dashboard Management
+
+### GET `/api/dashboards`
+
+Get a list of all **Vehicle Dashboards**.
 
 **Auth:** None  
-**Method:** `POST`
-
-**Postman Setup:**
-```
-POST http://localhost:5112/api/auth/login
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "email": "admin@eviot.com",
-  "password": "EVIoT@2024"
-}
-```
-
-**Response `200`:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "_id": "664abc123...",
-    "email": "admin@eviot.com",
-    "role": "admin"
-  }
-}
-```
-
----
-
-### GET `/api/auth/verify`
-
-Verify the current session token.
-
-**Auth:** ✅ Bearer Token  
 **Method:** `GET`
 
 **Postman Setup:**
 ```
-GET http://localhost:5112/api/auth/verify
-Authorization: Bearer <token>
+GET http://localhost:5112/api/dashboards
 ```
 
-**Response `200`:**
+---
+
+### POST `/api/dashboards`
+
+**Create** a new vehicle dashboard.
+
+**Auth:** Bearer Token (Admin Only)  
+**Method:** `POST`
+
+**Body:**
 ```json
 {
-  "_id": "664abc123...",
-  "email": "admin@eviot.com",
-  "role": "admin"
+  "dashboardName": "Fleet Unit #5",
+  "deviceId": "EV-005",
+  "email": "operator@gmail.com",
+  "password": "SecurePassword",
+  "description": "Logistics truck"
 }
 ```
 
 ---
 
-## 3. Vehicle Switch Control
+### PUT `/api/dashboards`
+
+**Update** dashboard details.
+
+**Auth:** Bearer Token (Admin Only)  
+**Method:** `PUT`
+
+**Body:**
+```json
+{
+  "id": "662a...",
+  "dashboardName": "Updated Truck Name",
+  "description": "Updated route"
+}
+```
+
+---
+
+### DELETE `/api/dashboards`
+
+**Delete** a dashboard.
+
+**Auth:** Bearer Token (Admin Only)  
+**Method:** `DELETE`
+
+**Query Param:** `?id=662a...` or in **Body** `{"id": "662a..."}`
+
+---
+
+## 5. Vehicle Switch Control
 
 > The switch represents the EV start/stop state.  
 > `switch: true` = **START / ON** | `switch: false` = **STOP / OFF**
@@ -404,394 +390,3 @@ DELETE http://localhost:5112/api/vehicle/data?deviceId=EV-001
   "deletedCount": 142
 }
 ```
-
----
-
-## 5. Devices
-
-### GET `/api/devices`
-
-Get all registered devices.
-
-**Auth:** ✅ Bearer Token  
-**Method:** `GET`
-
-**Postman Setup:**
-```
-GET http://localhost:5112/api/devices
-Authorization: Bearer <token>
-```
-
-**Response `200`:** Array of device objects with live `status` field.
-
----
-
-### POST `/api/devices`
-
-Register a new IoT device.
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `POST`
-
-**Postman Setup:**
-```
-POST http://localhost:5112/api/devices
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "deviceName": "EV Scooter 01",
-  "deviceId": "EV-001",
-  "location": "Warehouse A"
-}
-```
-
-**Response `201`:**
-```json
-{
-  "message": "Device added successfully",
-  "device": {
-    "_id": "664abc...",
-    "deviceName": "EV Scooter 01",
-    "deviceId": "EV-001",
-    "location": "Warehouse A",
-    "status": "Offline",
-    "createdAt": "2026-04-25T07:00:00.000Z"
-  }
-}
-```
-
----
-
-### PUT `/api/devices/:id`
-
-**Update** a device's name, location, or status.
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `PUT`
-
-**Postman Setup:**
-```
-PUT http://localhost:5112/api/devices/664abc123def456789
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "deviceName": "EV Scooter 01 - Updated",
-  "location": "Warehouse B",
-  "status": "Online"
-}
-```
-
-**Response `200`:**
-```json
-{
-  "message": "Device updated successfully",
-  "device": {
-    "_id": "664abc...",
-    "deviceName": "EV Scooter 01 - Updated",
-    "location": "Warehouse B",
-    "status": "Online"
-  }
-}
-```
-
----
-
-### DELETE `/api/devices/:id`
-
-Delete a device by its MongoDB `_id`.
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `DELETE`
-
-**Postman Setup:**
-```
-DELETE http://localhost:5112/api/devices/664abc123def456789
-Authorization: Bearer <token>
-```
-
-**Response `200`:**
-```json
-{
-  "message": "Device deleted successfully"
-}
-```
-
----
-
-## 6. Dashboards
-
-### GET `/api/dashboards`
-
-Get all dashboards (filtered by user role).
-
-**Auth:** ✅ Bearer Token  
-**Method:** `GET`
-
-**Postman Setup:**
-```
-GET http://localhost:5112/api/dashboards
-Authorization: Bearer <token>
-```
-
----
-
-### POST `/api/dashboards`
-
-Create a new vehicle dashboard with associated user.
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `POST`
-
-**Postman Setup:**
-```
-POST http://localhost:5112/api/dashboards
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "dashboardName": "Scooter Fleet Alpha",
-  "deviceId": "EV-001",
-  "email": "operator@eviot.com",
-  "password": "Operator@123",
-  "description": "Main fleet monitoring dashboard"
-}
-```
-
-**Response `201`:**
-```json
-{
-  "message": "Dashboard created successfully",
-  "dashboard": {
-    "_id": "664def...",
-    "dashboardName": "Scooter Fleet Alpha",
-    "deviceId": "EV-001"
-  },
-  "user": {
-    "email": "operator@eviot.com",
-    "_id": "664ghi..."
-  }
-}
-```
-
----
-
-### DELETE `/api/dashboards/:id`
-
-Delete a dashboard by its MongoDB `_id`.
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `DELETE`
-
-**Postman Setup:**
-```
-DELETE http://localhost:5112/api/dashboards/664def123abc456
-Authorization: Bearer <token>
-```
-
-**Response `200`:**
-```json
-{
-  "message": "Dashboard deleted successfully"
-}
-```
-
----
-
-## 7. Users
-
-### GET `/api/users/me`
-
-Get the currently logged-in user's profile.
-
-**Auth:** ✅ Bearer Token  
-**Method:** `GET`
-
-**Postman Setup:**
-```
-GET http://localhost:5112/api/users/me
-Authorization: Bearer <token>
-```
-
----
-
-### GET `/api/users`
-
-Get all users (Admin only).
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `GET`
-
-**Postman Setup:**
-```
-GET http://localhost:5112/api/users
-Authorization: Bearer <token>
-```
-
----
-
-### POST `/api/users`
-
-Create a new user (Admin only).
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `POST`
-
-**Postman Setup:**
-```
-POST http://localhost:5112/api/users
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "email": "newuser@eviot.com",
-  "password": "NewUser@123",
-  "role": "user"
-}
-```
-
----
-
-### PUT `/api/users/:id`
-
-Update a user's details (Admin only).
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `PUT`
-
-**Postman Setup:**
-```
-PUT http://localhost:5112/api/users/664abc123def456
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Body (raw JSON):**
-```json
-{
-  "email": "updated@eviot.com",
-  "role": "operator"
-}
-```
-
----
-
-### DELETE `/api/users/:id`
-
-Delete a user by MongoDB `_id` (Admin only).
-
-**Auth:** ✅ Bearer Token (Admin)  
-**Method:** `DELETE`
-
-**Postman Setup:**
-```
-DELETE http://localhost:5112/api/users/664abc123def456
-Authorization: Bearer <token>
-```
-
----
-
-## 8. Socket.IO Events
-
-Connect to: `ws://localhost:5112`
-
-| Event | Direction | Payload | Description |
-|-------|-----------|---------|-------------|
-| `newData` | Server → Client | `DeviceData` object | New telemetry record received |
-| `switchUpdate` | Server → Client | `{ deviceId, switch, reason, timestamp }` | Switch state changed |
-| `connection` | Client → Server | — | Client connected |
-| `disconnect` | Client → Server | — | Client disconnected |
-
-**JavaScript Example:**
-```javascript
-import { io } from 'socket.io-client';
-const socket = io('http://localhost:5112');
-
-socket.on('switchUpdate', ({ deviceId, switch: state }) => {
-  console.log(`Device ${deviceId} switch is now ${state ? 'ON' : 'OFF'}`);
-});
-
-socket.on('newData', (data) => {
-  console.log('New telemetry:', data);
-});
-```
-
----
-
-## 9. Error Codes
-
-| Status | Meaning | Common Cause |
-|--------|---------|--------------|
-| `200` | OK | Request succeeded |
-| `201` | Created | Resource created successfully |
-| `400` | Bad Request | Missing/invalid fields |
-| `401` | Unauthorized | No/invalid JWT token |
-| `403` | Forbidden | Insufficient role (not admin) |
-| `404` | Not Found | Resource doesn't exist |
-| `500` | Server Error | Internal / database error |
-
----
-
-## 🔑 Default Credentials
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@eviot.com` | `EVIoT@2024` |
-
----
-
-## 🚀 Postman Quick Import
-
-Create a new Postman **Collection** named `EVIoT Panel` with these folders:
-
-```
-EVIoT Panel/
-├── Auth/
-│   ├── POST  Login
-│   ├── POST  Register
-│   └── GET   Verify Token
-├── Switch/
-│   ├── GET   Get Switch State
-│   ├── POST  Toggle Switch
-│   └── PUT   Force Set Switch
-├── Telemetry/
-│   ├── POST  Send Data (ESP32)
-│   ├── GET   Latest Data
-│   ├── GET   History
-│   ├── GET   Last Hour Status
-│   └── DELETE Clear Device Data
-├── Devices/
-│   ├── GET   All Devices
-│   ├── POST  Add Device
-│   ├── PUT   Update Device
-│   └── DELETE Delete Device
-├── Dashboards/
-│   ├── GET   All Dashboards
-│   ├── POST  Create Dashboard
-│   └── DELETE Delete Dashboard
-└── Users/
-    ├── GET   My Profile
-    ├── GET   All Users
-    ├── POST  Create User
-    ├── PUT   Update User
-    └── DELETE Delete User
-```
-
-**Set a Postman environment variable:**
-- Variable: `base_url` → Value: `http://localhost:5112`
-- Variable: `token` → Value: _(paste JWT after login)_
-
-Then use `{{base_url}}/api/...` and `Bearer {{token}}` in all requests.

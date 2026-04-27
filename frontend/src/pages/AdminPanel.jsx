@@ -59,7 +59,7 @@ const AdminPanel = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#111827] rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#06b6d4] to-[#10b981] rounded-xl flex items-center justify-center text-white shadow-lg">
                         <Lock size={24} />
                     </div>
                     <div>

@@ -68,7 +68,7 @@
 .glass-icon {
   width: 44px;
   height: 44px;
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -181,8 +181,8 @@
 }
 
 .icon-box {
-  background: #ecfdf5;
-  color: var(--primary);
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
+  color: white;
   width: 44px;
   height: 44px;
   display: flex;
@@ -245,7 +245,7 @@
 /* BUTTONS                       */
 /* ============================= */
 .primary-btn {
-  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
   color: #FFFFFF;
   font-weight: 700;
   padding: 10px 20px;
@@ -259,6 +259,27 @@
 }
 
 .primary-btn:hover {
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
+.secondary-btn {
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
+  color: #FFFFFF;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+}
+
+.secondary-btn:hover {
+  background: linear-gradient(135deg, rgb(16, 185, 129), rgb(6, 182, 212));
   box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
   transform: translateY(-1px);
 }

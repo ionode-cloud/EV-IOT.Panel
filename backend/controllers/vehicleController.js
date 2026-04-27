@@ -82,6 +82,9 @@ exports.getSwitchState = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.toggleSwitch = async (req, res) => {
     try {
+        if (req.user && req.user.role === 'operator') {
+            return res.status(403).json({ message: 'Operators are not authorized to toggle switches' });
+        }
         const { deviceId, switchState } = req.body;
 
         if (!deviceId || switchState === undefined) {
@@ -134,6 +137,9 @@ exports.toggleSwitch = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.setSwitch = async (req, res) => {
     try {
+        if (req.user && req.user.role === 'operator') {
+            return res.status(403).json({ message: 'Operators are not authorized to set switches' });
+        }
         const { deviceId, switchState, reason } = req.body;
 
         if (!deviceId || switchState === undefined) {
@@ -250,6 +256,9 @@ exports.getLastHourStatus = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.deleteVehicleData = async (req, res) => {
     try {
+        if (req.user && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to delete vehicle data' });
+        }
         const { deviceId } = req.query;
         if (!deviceId) {
             return res.status(400).json({ message: 'deviceId is required as query param' });

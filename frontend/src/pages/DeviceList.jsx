@@ -5,8 +5,10 @@ import {
     Trash2, Wifi, WifiOff, AlertCircle,
     MonitorSmartphone, Cpu, Hash, X, MapPin, ChevronRight
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const DeviceList = () => {
+    const { user } = useAuth();
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -20,9 +22,7 @@ const DeviceList = () => {
     const [formError, setFormError] = useState('');
     const [formSuccess, setFormSuccess] = useState('');
 
-    const userString = localStorage.getItem('user');
-    const user = userString ? JSON.parse(userString) : {};
-    const isAdmin = user.role === 'admin';
+    const isAdmin = user?.role === 'admin';
 
     const fetchDevices = async () => {
         try {
@@ -45,7 +45,11 @@ const DeviceList = () => {
         setFormLoading(true);
         try {
             const apiUrl = import.meta.env.VITE_API_URL ;
-            await axios.post(`${apiUrl}/api/devices`, { deviceName, deviceId, location });
+            const token = localStorage.getItem('token');
+            await axios.post(`${apiUrl}/api/devices`, 
+                { deviceName, deviceId, location },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             setFormSuccess(`Device added successfully!`);
             setDeviceName(''); setDeviceId(''); setLocation('');
             fetchDevices();
@@ -61,7 +65,10 @@ const DeviceList = () => {
         if (!window.confirm('Delete this device?')) return;
         try {
             const apiUrl = import.meta.env.VITE_API_URL ;
-            await axios.delete(`${apiUrl}/api/devices/${id}`);
+            const token = localStorage.getItem('token');
+            await axios.delete(`${apiUrl}/api/devices/${id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setDevices(prev => prev.filter(d => d._id !== id));
         } catch (err) {
             alert('Failed to delete device.');
@@ -79,7 +86,7 @@ const DeviceList = () => {
             {/* Header Area */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#111827] rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <div  className="w-12 h-12 bg-gradient-to-br from-[#06b6d4] to-[#10b981] rounded-xl flex items-center justify-center text-white shadow-lg">
                         <MonitorSmartphone size={24} />
                     </div>
                     <div>
@@ -164,7 +171,7 @@ const DeviceList = () => {
                         <thead>
                             <tr>
                                 <th>Device Name</th>
-                                <th>Identity</th>
+                                <th>Device ID</th>
                                 <th>Location</th>
                                 <th>Network State</th>
                                 <th>Diagnostic Time</th>

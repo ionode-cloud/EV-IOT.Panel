@@ -68,6 +68,10 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 5000;
 
+app.get("/", (req, res) => {
+  res.send("Ev-Iot.panel API is running...");
+});
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
